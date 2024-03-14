@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.*;
 import java.util.Map;
@@ -37,6 +38,7 @@ public class apiFile {
             userDetailsMap.put("id",String.valueOf( row.get("id")));
             userDetailsMap.put("userid", (String) row.get("userid"));
             userDetailsMap.put("password", (String) row.get("password"));
+
 //            userDetailsMap.put("sessionExpiry", (Date) row.get("sessionExpiry"));
 
 
@@ -53,7 +55,7 @@ public class apiFile {
 
     @GetMapping("/getEmployeeDetails")
     public List<Map<String, Object>> getEmployeeDetails() {
-        String sql ="select id,userid,password from person where employeeStatus=true";
+        String sql ="select id,userid,password,payscale from person where employeeStatus=true";
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
         List<Map<String, Object>> result = new ArrayList<>();
 
@@ -64,12 +66,23 @@ public class apiFile {
             userDetailsMap.put("id",String.valueOf( row.get("id")));
             userDetailsMap.put("userid", (String) row.get("userid"));
             userDetailsMap.put("password", (String) row.get("password"));
+            userDetailsMap.put("payscale",String.valueOf( row.get("payscale")));
+
             // userDetailsMap.put("sessionExpiry", (Date) row.get("sessionExpiry"));
 
             result.add(userDetailsMap);
         }
 
         return result;
+    }
+
+
+    @GetMapping("/getEmployeeAttendanceDetails")
+    public List<Map<String, Object>> getEmployeeAttendanceDetails() {
+        String sql ="select * from person_attendance";
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+
+        return rows;
     }
 
     @PostMapping("/EmployeeDetail")
@@ -151,10 +164,38 @@ public class apiFile {
         return updatedRows;
     }
 
+    @PostMapping("/updatePersonPayRoll")
+    public List<Map<String, Object>> updatePersonPayRoll(@RequestBody Map<String, String> payload) {
+
+
+        System.out.println(payload);
+        String payScalestr = payload.get("newpayscale");
+        BigDecimal payscale = new BigDecimal(payScalestr);
+
+        String empidString = payload.get("employeeId");
+        BigDecimal id = new BigDecimal(empidString);
+
+
+
+        // Construct the SQL UPDATE statement
+        String sql = "update person set payscale=? where id=?";
+
+        // Execute the SQL UPDATE statement using JDBC template
+        jdbcTemplate.update(sql,payscale,id);
+
+        // Retrieve and return updated rows (optional)
+        List<Map<String, Object>> updatedRows = jdbcTemplate.queryForList("SELECT * FROM public.person WHERE id= ?", id);
+        return updatedRows;
+    }
+
     @PostMapping("/saveEmployeeDetail")
     public List<Map<String, Object>> saveEmployeeDetail(@RequestBody Map<String, String> payload) {
 
         System.out.println("payload in the save employee### " + payload);
+        String employeeId = payload.get("employee_id");
+        String payScalestr = payload.get("pay_scale");
+        BigDecimal payScale = new BigDecimal(payScalestr);
+
         String userId = payload.get("user_id");
         String clockInStatus = payload.get("clock_in_status");
         boolean disableClockIn = Boolean.parseBoolean(payload.get("disable_clock_in"));
@@ -163,11 +204,11 @@ public class apiFile {
 
         // Construct the SQL INSERT statement
         String sql = "INSERT INTO public.person_attendance "
-                + "(user_id, clock_in_status, disable_clock_in, clock_out_status, disable_clock_out) "
-                + "VALUES (?, ?, ?, ?, ?)";
+                + "(employee_id,user_id, clock_in_status, disable_clock_in, clock_out_status, disable_clock_out,pay_scale) "
+                + "VALUES (?, ?, ?, ?, ?, ?,?)";
 
         // Execute the SQL INSERT statement using JDBC template
-        jdbcTemplate.update(sql, userId, clockInStatus, disableClockIn, clockOutStatus, disableClockOut);
+        jdbcTemplate.update(sql,employeeId,userId, clockInStatus, disableClockIn, clockOutStatus, disableClockOut,payScale);
 
         // Return any desired response (e.g., success message or updated rows)
         return Collections.singletonList(Collections.singletonMap("message", "Data inserted successfully"));
